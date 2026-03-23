@@ -1,0 +1,85 @@
+{
+  "id": "swim-school",
+  "name": "Swim School",
+  "description": "WhatsApp bot for swim school instructors: shifts, docs, and cover requests.",
+  "uiHints": {
+    "apiMode": {
+      "label": "API Mode",
+      "help": "Use mock for development or live when the shift API is ready."
+    },
+    "apiBaseUrl": {
+      "label": "Shift API Base URL",
+      "help": "Base URL for the live shift scheduling API."
+    },
+    "coverRequestExpiryHours": {
+      "label": "Cover Request Expiry (hours)",
+      "help": "Hours before an unanswered cover request expires."
+    },
+    "gwBinaryPath": {
+      "label": "Google Workspace CLI Path",
+      "help": "Path to the gw binary for doc queries."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "instructors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "instructorId": { "type": "string" },
+            "name": { "type": "string" },
+            "phone": { "type": "string" },
+            "email": { "type": "string" },
+            "siteId": { "type": "string" }
+          },
+          "required": ["instructorId", "name", "phone", "siteId"]
+        }
+      },
+      "sites": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "siteId": { "type": "string" },
+            "name": { "type": "string" },
+            "suburb": { "type": "string" },
+            "managerPhone": { "type": "string" },
+            "managerName": { "type": "string" }
+          },
+          "required": ["siteId", "name", "managerPhone", "managerName"]
+        }
+      },
+      "allowedDocs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "docId": { "type": "string" },
+            "title": { "type": "string" },
+            "category": { "type": "string" }
+          },
+          "required": ["docId", "title"]
+        }
+      },
+      "apiMode": {
+        "type": "string",
+        "enum": ["mock", "live"],
+        "default": "mock"
+      },
+      "apiBaseUrl": {
+        "type": "string"
+      },
+      "coverRequestExpiryHours": {
+        "type": "number",
+        "default": 24
+      },
+      "gwBinaryPath": {
+        "type": "string",
+        "default": "gw"
+      }
+    }
+  }
+}

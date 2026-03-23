@@ -1,0 +1,15 @@
+{
+  "name": "@openclaw/swim-school",
+  "version": "2026.3.22",
+  "private": true,
+  "description": "Swim school WhatsApp bot plugin: shifts, docs, and cover requests",
+  "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
