@@ -6,11 +6,17 @@ WhatsApp bot for swim school instructors: shift inquiries, learn-to-swim doc que
 
 ```bash
 # From the repo root:
-scp -r /opt/github/openclaw/extensions/swim-school/* wal@api2.investi.com.au:~/swim-school/
+scp -r /opt/github/wallaceturner/swim-school/* wal@api2.investi.com.au:~/swim-school/
 
 # Then on api2:
-openclaw plugins install -l ~/swim-school
-openclaw gateway restart
+./deploy.sh
+```
+
+## First-Time Setup on Remote
+
+```bash
+# Trust the plugin to suppress the "plugins.allow is empty" warning:
+openclaw config set plugins.allow '["swim-school"]'
 ```
 
 ## Configuration
@@ -22,8 +28,7 @@ openclaw config set plugins.entries.swim-school.enabled true
 
 # Add instructors (phone in E.164 format)
 openclaw config set plugins.entries.swim-school.config.instructors '[
-  {"instructorId": "inst-1", "name": "Sarah", "phone": "+61400000001", "email": "sarah@example.com", "siteId": "burwood"},
-  {"instructorId": "inst-2", "name": "James", "phone": "+61400000002", "email": "james@example.com", "siteId": "burwood"}
+  {"instructorId": "inst-1", "name": "Sarah", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteId": "mosnmanpark"},
 ]'
 
 # Add sites
