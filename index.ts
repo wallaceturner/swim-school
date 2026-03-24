@@ -1,5 +1,5 @@
 import path from "node:path";
-import { definePluginEntry, type OpenClawPluginApi } from "./api.js";
+import type { OpenClawPluginApi } from "./api.js";
 import { resolveConfig } from "./src/config.js";
 import { createCoverMatcher } from "./src/cover/matcher.js";
 import { createCoverRequestStore } from "./src/cover/state.js";
@@ -11,7 +11,7 @@ import { createShiftsTool } from "./src/tools/shifts.js";
 
 const ALLOWED_TOOLS = new Set(["swim_shifts", "swim_docs", "swim_cover_request"]);
 
-export default definePluginEntry({
+export default {
   id: "swim-school",
   name: "Swim School",
   description: "WhatsApp bot for swim school instructors: shifts, docs, and cover requests.",
@@ -83,4 +83,4 @@ export default definePluginEntry({
       },
     });
   },
-});
+};

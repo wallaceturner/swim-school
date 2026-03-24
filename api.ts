@@ -1,6 +1,5 @@
 // Import from openclaw/plugin-sdk/core — available in all published versions.
 export {
-  definePluginEntry,
   type AnyAgentTool,
   type OpenClawPluginApi,
   type OpenClawPluginConfigSchema,

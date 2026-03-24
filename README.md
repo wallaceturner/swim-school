@@ -28,12 +28,12 @@ openclaw config set plugins.entries.swim-school.enabled true
 
 # Add instructors (phone in E.164 format)
 openclaw config set plugins.entries.swim-school.config.instructors '[
-  {"instructorId": "inst-1", "name": "Sarah", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteId": "mosnmanpark"},
+  {"instructorId": "inst-1", "name": "Wal", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteId": "mosmanpark"},
 ]'
 
 # Add sites
 openclaw config set plugins.entries.swim-school.config.sites '[
-  {"siteId": "burwood", "name": "Burwood Swim Centre", "suburb": "Burwood", "managerPhone": "+61400000099", "managerName": "Mike"}
+  {"siteId": "mosmanpark", "name": "Mosman Park", "suburb": "Mosman Park", "managerPhone": "+61400000099", "managerName": "Kara"}
 ]'
 
 # Add allowed Google Docs
