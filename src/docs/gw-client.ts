@@ -16,16 +16,23 @@ type DriveFile = {
   mimeType: string;
 };
 
+function shellEscapeJson(params: Record<string, unknown>): string {
+  // Escape single quotes in JSON by ending the single-quoted string, adding an escaped quote, and restarting
+  const json = JSON.stringify(params);
+  return `'${json.replace(/'/g, "'\\''")}'`;
+}
+
 /** Find a Drive folder by name and return its ID. */
 export async function findFolderByName(
   folderName: string,
   opts: GwsOpts,
 ): Promise<string | null> {
   const q = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const { stdout } = await execAsync(
-    `${opts.gwsBinary} drive files list --params '${JSON.stringify({ q, pageSize: 5, fields: "files(id,name)" })}'`,
-    { timeout: 30_000 },
-  );
+  const cmd = `${opts.gwsBinary} drive files list --params ${shellEscapeJson({ q, pageSize: 5, fields: "files(id,name)" })}`;
+  console.error(`[swim-school] exec: ${cmd}`);
+  const { stdout, stderr } = await execAsync(cmd, { timeout: 30_000 });
+  if (stderr) console.error(`[swim-school] stderr: ${stderr}`);
+  console.error(`[swim-school] stdout: ${stdout.slice(0, 500)}`);
   const data = JSON.parse(stdout);
   const files = data.files ?? [];
   return files.length > 0 ? files[0].id : null;
@@ -37,10 +44,11 @@ export async function listFolderContents(
   opts: GwsOpts,
 ): Promise<DriveFile[]> {
   const q = `'${folderId}' in parents and trashed = false`;
-  const { stdout } = await execAsync(
-    `${opts.gwsBinary} drive files list --params '${JSON.stringify({ q, pageSize: 100, fields: "files(id,name,mimeType)" })}'`,
-    { timeout: 30_000 },
-  );
+  const cmd = `${opts.gwsBinary} drive files list --params ${shellEscapeJson({ q, pageSize: 100, fields: "files(id,name,mimeType)" })}`;
+  console.error(`[swim-school] exec: ${cmd}`);
+  const { stdout, stderr } = await execAsync(cmd, { timeout: 30_000 });
+  if (stderr) console.error(`[swim-school] stderr: ${stderr}`);
+  console.error(`[swim-school] stdout: ${stdout.slice(0, 500)}`);
   const data = JSON.parse(stdout);
   return (data.files ?? []) as DriveFile[];
 }
@@ -52,7 +60,7 @@ export async function fetchDocContent(
 ): Promise<string> {
   try {
     const { stdout } = await execAsync(
-      `${opts.gwsBinary} drive files export --params '${JSON.stringify({ fileId, mimeType: "text/plain" })}'`,
+      `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "text/plain" })}`,
       { timeout: 30_000 },
     );
     if (stdout.length > MAX_CONTENT_LENGTH) {
@@ -77,7 +85,7 @@ export async function exportAndEmailPdf(
   const pdfPath = path.join(tmpdir(), `swim-school-${fileId}.pdf`);
   try {
     await execAsync(
-      `${opts.gwsBinary} drive files export --params '${JSON.stringify({ fileId, mimeType: "application/pdf" })}' --output ${pdfPath}`,
+      `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "application/pdf" })} --output ${pdfPath}`,
       { timeout: 60_000 },
     );
 

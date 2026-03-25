@@ -57,7 +57,7 @@ export default {
     //   name: "swim_shifts",
     // });
 
-    api.registerTool((ctx) => createDocsTool({ cfg, registry, context: ctx }), {
+    api.registerTool((ctx) => createDocsTool({ cfg, registry, context: ctx, logger: api.logger }), {
       name: "swim_docs",
     });
 
