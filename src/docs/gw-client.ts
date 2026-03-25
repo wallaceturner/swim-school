@@ -58,20 +58,25 @@ export async function fetchDocContent(
   fileId: string,
   opts: GwsOpts,
 ): Promise<string> {
+  const outPath = path.join(tmpdir(), `swim-school-${fileId}.txt`);
   try {
-    const { stdout } = await execAsync(
-      `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "text/plain" })}`,
-      { timeout: 30_000 },
-    );
-    if (stdout.length > MAX_CONTENT_LENGTH) {
+    const cmd = `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "text/plain" })} --output ${outPath}`;
+    console.error(`[swim-school] exec: ${cmd}`);
+    await execAsync(cmd, { timeout: 30_000 });
+
+    const { readFile } = await import("node:fs/promises");
+    const content = await readFile(outPath, "utf-8");
+
+    if (content.length > MAX_CONTENT_LENGTH) {
       return (
-        stdout.slice(0, MAX_CONTENT_LENGTH) +
+        content.slice(0, MAX_CONTENT_LENGTH) +
         "\n\n[Content truncated — ask for specific sections or request the full PDF via email.]"
       );
     }
-    return stdout;
+    return content;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(`[swim-school] fetchDocContent error: ${message}`);
     return `Failed to fetch document content: ${message}`;
   }
 }
@@ -79,28 +84,27 @@ export async function fetchDocContent(
 /** Export a Google Doc as PDF and email it to the recipient. */
 export async function exportAndEmailPdf(
   fileId: string,
+  docName: string,
   recipientEmail: string,
   opts: GwsOpts,
 ): Promise<string> {
   const pdfPath = path.join(tmpdir(), `swim-school-${fileId}.pdf`);
   try {
-    await execAsync(
-      `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "application/pdf" })} --output ${pdfPath}`,
-      { timeout: 60_000 },
-    );
+    // Export as PDF
+    const exportCmd = `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "application/pdf" })} --output ${pdfPath}`;
+    console.error(`[swim-school] exec: ${exportCmd}`);
+    await execAsync(exportCmd, { timeout: 60_000 });
 
-    await execAsync(
-      `${opts.gwsBinary} gmail users messages send --params '${JSON.stringify({ userId: "me" })}' --json '${JSON.stringify({
-        raw: "", // placeholder — see note below
-      })}' `,
-      { timeout: 60_000 },
-    );
+    // Email via gws gmail helper
+    const subject = `Swim School: ${docName}`.replace(/'/g, "'\\''");
+    const sendCmd = `${opts.gwsBinary} gmail +send --to ${recipientEmail} --subject '${subject}' --body 'Please find the requested document attached.' -a ${pdfPath}`;
+    console.error(`[swim-school] exec: ${sendCmd}`);
+    await execAsync(sendCmd, { timeout: 60_000 });
 
-    // TODO: gws gmail send with attachment — for now use a simpler approach
-    // if gws has a workflow command for this
-    return `PDF exported. Email delivery not yet implemented — check back soon.`;
+    return `PDF of "${docName}" has been emailed to ${recipientEmail}.`;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(`[swim-school] exportAndEmailPdf error: ${message}`);
     return `Failed to send PDF: ${message}`;
   }
 }

@@ -1,4 +1,4 @@
-import { findFolderByName, listFolderContents } from "./gw-client.js";
+import { findFolderByName, listFolderContents, fetchDocContent } from "./gw-client.js";
 
 type DriveFile = {
   id: string;
@@ -12,9 +12,15 @@ type FolderCacheEntry = {
   fetchedAt: number;
 };
 
+type ContentCacheEntry = {
+  content: string;
+  fetchedAt: number;
+};
+
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 let cache: FolderCacheEntry | null = null;
+const contentCache = new Map<string, ContentCacheEntry>();
 
 /** Resolve the folder and list its docs, with a short TTL cache. */
 export async function getDocsInFolder(
@@ -34,6 +40,22 @@ export async function getDocsInFolder(
   const files = await listFolderContents(folderId, { gwsBinary });
   cache = { folderId, files, fetchedAt: now };
   return files;
+}
+
+/** Fetch doc content with caching (1 hour TTL). */
+export async function getCachedDocContent(
+  fileId: string,
+  gwsBinary: string,
+): Promise<string> {
+  const now = Date.now();
+  const cached = contentCache.get(fileId);
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.content;
+  }
+
+  const content = await fetchDocContent(fileId, { gwsBinary });
+  contentCache.set(fileId, { content, fetchedAt: now });
+  return content;
 }
 
 /** Find docs in the folder whose name matches the query (case-insensitive). */
