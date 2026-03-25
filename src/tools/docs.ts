@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { AnyAgentTool, OpenClawPluginToolContext, PluginLogger } from "../../api.js";
-import { exportAndEmailPdf } from "../docs/gw-client.js";
+import { emailDoc } from "../docs/gw-client.js";
 import { getDocsInFolder, getCachedDocContent, matchDocsByQuery } from "../docs/folder.js";
 import type { InstructorRegistry } from "../registry.js";
 import { textResult } from "../tool-result.js";
@@ -19,7 +19,7 @@ const ACTIONS = ["query", "email_pdf"] as const;
 const DocsToolSchema = Type.Object({
   action: stringEnum(
     ACTIONS,
-    '"query" to search/read documents. "email_pdf" to email a document as PDF to the instructor.',
+    '"query" to search/read documents. "email_pdf" to email a document to the instructor.',
   ),
   query: Type.String({
     description:
@@ -84,7 +84,7 @@ export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
 
           const doc = matches[0];
           logger.info(`swim_docs: emailing "${doc.name}" to ${instructor.email}`);
-          const result = await exportAndEmailPdf(doc.id, doc.name, instructor.email, { gwsBinary });
+          const result = await emailDoc(doc.id, doc.name, instructor.email, { gwsBinary });
           return textResult(result);
         }
 
