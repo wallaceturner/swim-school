@@ -1,25 +1,7 @@
 {
   "id": "swim-school",
   "name": "Swim School",
-  "description": "WhatsApp bot for swim school instructors: shifts, docs, and cover requests.",
-  "uiHints": {
-    "apiMode": {
-      "label": "API Mode",
-      "help": "Use mock for development or live when the shift API is ready."
-    },
-    "apiBaseUrl": {
-      "label": "Shift API Base URL",
-      "help": "Base URL for the live shift scheduling API."
-    },
-    "coverRequestExpiryHours": {
-      "label": "Cover Request Expiry (hours)",
-      "help": "Hours before an unanswered cover request expires."
-    },
-    "gwBinaryPath": {
-      "label": "Google Workspace CLI Path",
-      "help": "Path to the gw binary for doc queries."
-    }
-  },
+  "description": "WhatsApp bot for swim school instructors: document queries.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -52,17 +34,9 @@
           "required": ["siteId", "name", "managerPhone", "managerName"]
         }
       },
-      "allowedDocs": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "docId": { "type": "string" },
-            "title": { "type": "string" },
-            "category": { "type": "string" }
-          },
-          "required": ["docId", "title"]
-        }
+      "driveFolder": {
+        "type": "string",
+        "default": "instructors"
       },
       "apiMode": {
         "type": "string",
@@ -75,10 +49,6 @@
       "coverRequestExpiryHours": {
         "type": "number",
         "default": 24
-      },
-      "gwBinaryPath": {
-        "type": "string",
-        "default": "gw"
       }
     }
   }

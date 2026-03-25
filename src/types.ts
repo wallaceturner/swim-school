@@ -72,9 +72,11 @@ export type AllowedDoc = {
 export type SwimSchoolPluginConfig = {
   instructors?: Instructor[];
   sites?: Site[];
+  /** @deprecated Use driveFolder instead. */
   allowedDocs?: AllowedDoc[];
+  /** Drive folder name to list documents from (default: "instructors"). */
+  driveFolder?: string;
   apiMode?: "mock" | "live";
   apiBaseUrl?: string;
   coverRequestExpiryHours?: number;
-  gwBinaryPath?: string;
 };

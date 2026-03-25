@@ -66,4 +66,26 @@ export class InstructorRegistry {
   getAllSites(): Site[] {
     return [...this.sites.values()];
   }
+
+  /** Check if a phone number belongs to a registered instructor or site manager. */
+  isKnownPerson(phone: string): boolean {
+    if (this.lookupByPhone(phone)) return true;
+    // Check site managers
+    let cleaned = phone;
+    if (cleaned.includes("@")) {
+      cleaned = "+" + cleaned.split("@")[0].split(":")[0];
+    }
+    cleaned = normalizePhone(cleaned);
+    for (const site of this.sites.values()) {
+      const managerNormalized = normalizePhone(site.managerPhone);
+      if (
+        cleaned === managerNormalized ||
+        cleaned === managerNormalized.replace(/^\+/, "") ||
+        "+" + cleaned === managerNormalized
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

@@ -1,32 +1,16 @@
 import { Type } from "@sinclair/typebox";
 import type { AnyAgentTool, OpenClawPluginToolContext } from "../../api.js";
-import { fetchDocContent, exportAndEmailPdf } from "../docs/gw-client.js";
-import { isDocAllowed, findMatchingDocs } from "../docs/whitelist.js";
+import { fetchDocContent } from "../docs/gw-client.js";
+import { getDocsInFolder, matchDocsByQuery } from "../docs/folder.js";
 import type { InstructorRegistry } from "../registry.js";
 import { textResult } from "../tool-result.js";
 import type { SwimSchoolPluginConfig } from "../types.js";
 
-function stringEnum<T extends readonly string[]>(values: T, description: string) {
-  return Type.Unsafe<T[number]>({
-    type: "string",
-    enum: [...values],
-    description,
-  });
-}
-
-const ACTIONS = ["query", "email_pdf"] as const;
-
 const DocsToolSchema = Type.Object({
-  action: stringEnum(
-    ACTIONS,
-    '"query" to search and return content from approved docs. "email_pdf" to send a specific doc as PDF to your email.',
-  ),
-  query: Type.Optional(
-    Type.String({ description: "Search query or question about learn-to-swim programs." }),
-  ),
-  docId: Type.Optional(
-    Type.String({ description: "Google Doc ID to email as PDF. Required for email_pdf action." }),
-  ),
+  query: Type.String({
+    description:
+      "Search query or question about learn-to-swim programs. Use this to find and read documents from the shared instructors folder.",
+  }),
 });
 
 type DocsToolOpts = {
@@ -37,12 +21,14 @@ type DocsToolOpts = {
 
 export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
   const { cfg, registry, context } = opts;
+  const gwsBinary = "gws";
+  const folderName = cfg.driveFolder ?? "instructors";
 
   return {
     name: "swim_docs",
     label: "Swim Docs",
     description:
-      'Search approved learn-to-swim program documents or email a PDF to the instructor. Use action "query" to search, "email_pdf" to send a document.',
+      "Search learn-to-swim program documents from the shared instructors folder. Ask a question or search by document name.",
     parameters: DocsToolSchema,
     execute: async (_toolCallId: string, params: Record<string, unknown>) => {
       const senderId = context.requesterSenderId;
@@ -50,65 +36,48 @@ export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
         return textResult("Unable to identify you. Please contact your manager.");
       }
 
-      const instructor = registry.lookupByPhone(senderId);
-      if (!instructor) {
+      if (!registry.isKnownPerson(senderId)) {
         return textResult("Your phone number is not registered. Please contact your manager.");
       }
 
-      const action = params.action as string;
-      const allowedDocs = cfg.allowedDocs ?? [];
+      const query = params.query as string;
 
-      if (action === "email_pdf") {
-        const docId = params.docId as string | undefined;
-        if (!docId) {
-          return textResult("Please specify which document to email (docId).");
+      try {
+        const files = await getDocsInFolder(folderName, gwsBinary);
+
+        if (files.length === 0) {
+          return textResult("No documents found in the instructors folder.");
         }
-        if (!isDocAllowed(docId, allowedDocs)) {
+
+        // If the query is generic like "list" or "what documents", show all files
+        const listKeywords = ["list", "what documents", "available", "show all", "all docs"];
+        if (listKeywords.some((kw) => query.toLowerCase().includes(kw))) {
+          const list = files.map((f) => `• ${f.name}`).join("\n");
           return textResult(
-            "That document is not available. Please choose from the approved documents.",
+            `Documents in the instructors folder:\n${list}\n\nAsk me a question about any of these.`,
           );
         }
-        if (!instructor.email) {
-          return textResult("No email address on file for you. Please contact your manager.");
+
+        // Find matching docs by name
+        const matches = matchDocsByQuery(query, files);
+
+        if (matches.length === 0) {
+          // No name match — fetch the best candidate or show the list
+          const list = files.map((f) => `• ${f.name}`).join("\n");
+          return textResult(
+            `No documents matched your query. Available documents:\n${list}\n\nTry asking about one of these by name.`,
+          );
         }
 
-        const result = await exportAndEmailPdf({
-          docId,
-          recipientEmail: instructor.email,
-          gwBinary: cfg.gwBinaryPath ?? "gw",
-        });
+        // Fetch content of the best match
+        const doc = matches[0];
+        const content = await fetchDocContent(doc.id, { gwsBinary });
 
-        return textResult(result);
+        return textResult(`From "${doc.name}":\n\n${content}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return textResult(`Error accessing documents: ${message}`);
       }
-
-      // action === "query"
-      const query = params.query as string | undefined;
-      if (!query) {
-        if (allowedDocs.length === 0) {
-          return textResult("No documents are currently available.");
-        }
-        const list = allowedDocs
-          .map((d) => `• ${d.title}${d.category ? ` (${d.category})` : ""} — ID: ${d.docId}`)
-          .join("\n");
-        return textResult(
-          `Available learn-to-swim documents:\n${list}\n\nAsk me a question about any of these, or request a PDF by ID.`,
-        );
-      }
-
-      const matches = findMatchingDocs(query, allowedDocs);
-      if (matches.length === 0) {
-        return textResult(
-          "No matching documents found. Try a different search term, or ask me to list available documents.",
-        );
-      }
-
-      const doc = matches[0];
-      const content = await fetchDocContent({
-        docId: doc.docId,
-        gwBinary: cfg.gwBinaryPath ?? "gw",
-      });
-
-      return textResult(`From "${doc.title}":\n\n${content}`);
     },
   };
 }

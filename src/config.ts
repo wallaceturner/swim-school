@@ -1,11 +1,11 @@
-import type { Instructor, Site, AllowedDoc, SwimSchoolPluginConfig } from "./types.js";
+import type { Instructor, Site, SwimSchoolPluginConfig } from "./types.js";
 
 const DEFAULTS: Required<
-  Pick<SwimSchoolPluginConfig, "apiMode" | "coverRequestExpiryHours" | "gwBinaryPath">
+  Pick<SwimSchoolPluginConfig, "apiMode" | "coverRequestExpiryHours" | "driveFolder">
 > = {
   apiMode: "mock",
   coverRequestExpiryHours: 24,
-  gwBinaryPath: "gw",
+  driveFolder: "instructors",
 };
 
 export function resolveConfig(raw: Record<string, unknown> | undefined): SwimSchoolPluginConfig {
@@ -13,11 +13,10 @@ export function resolveConfig(raw: Record<string, unknown> | undefined): SwimSch
   return {
     instructors: cfg.instructors ?? [],
     sites: cfg.sites ?? [],
-    allowedDocs: cfg.allowedDocs ?? [],
+    driveFolder: cfg.driveFolder ?? DEFAULTS.driveFolder,
     apiMode: cfg.apiMode ?? DEFAULTS.apiMode,
     apiBaseUrl: cfg.apiBaseUrl,
     coverRequestExpiryHours: cfg.coverRequestExpiryHours ?? DEFAULTS.coverRequestExpiryHours,
-    gwBinaryPath: cfg.gwBinaryPath ?? DEFAULTS.gwBinaryPath,
   };
 }
 
@@ -27,8 +26,4 @@ export function getInstructors(cfg: SwimSchoolPluginConfig): Instructor[] {
 
 export function getSites(cfg: SwimSchoolPluginConfig): Site[] {
   return cfg.sites ?? [];
-}
-
-export function getAllowedDocs(cfg: SwimSchoolPluginConfig): AllowedDoc[] {
-  return cfg.allowedDocs ?? [];
 }
