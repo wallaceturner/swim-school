@@ -85,32 +85,27 @@ export async function fetchDocContent(
   }
 }
 
-/** Email a Google Doc's content to the recipient as plain text. */
+/** Export a Google Doc as PDF and email it as an attachment. */
 export async function emailDoc(
   fileId: string,
   docName: string,
   recipientEmail: string,
   opts: GwsOpts,
 ): Promise<string> {
+  const pdfFile = `${fileId}.pdf`;
   try {
-    // First get the text content (uses cache if available)
-    const content = await fetchDocContent(fileId, opts);
-    if (content.startsWith("Failed to fetch")) {
-      return content;
-    }
+    // Export as PDF into cache dir
+    const exportCmd = `${opts.gwsBinary} drive files export --params ${shellEscapeJson({ fileId, mimeType: "application/pdf" })} --output ${pdfFile}`;
+    console.error(`[swim-school] exec: ${exportCmd}`);
+    await execAsync(exportCmd, { timeout: 60_000, cwd: CACHE_DIR });
 
-    // Email the content as body text
+    // Email with PDF attachment — run from cache dir so gws can access the file
     const subject = `Swim School: ${docName}`.replace(/'/g, "'\\''");
-    const bodyFile = path.join(CACHE_DIR, `${fileId}-email-body.txt`);
-    fs.writeFileSync(bodyFile, content, "utf-8");
+    const sendCmd = `${opts.gwsBinary} gmail +send --to ${recipientEmail} --subject '${subject}' --body 'Please find the requested document attached.' -a ${pdfFile}`;
+    console.error(`[swim-school] exec: ${sendCmd}`);
+    await execAsync(sendCmd, { timeout: 60_000, cwd: CACHE_DIR });
 
-    // Read from file to avoid shell escaping issues with doc content
-    const bodyContent = fs.readFileSync(bodyFile, "utf-8").replace(/'/g, "'\\''");
-    const sendCmd = `${opts.gwsBinary} gmail +send --to ${recipientEmail} --subject '${subject}' --body '${bodyContent}'`;
-    console.error(`[swim-school] exec: gws gmail +send --to ${recipientEmail} --subject '${subject}' --body '<${content.length} chars>'`);
-    await execAsync(sendCmd, { timeout: 60_000 });
-
-    return `"${docName}" has been emailed to ${recipientEmail}.`;
+    return `"${docName}" has been emailed as PDF to ${recipientEmail}.`;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[swim-school] emailDoc error: ${message}`);
