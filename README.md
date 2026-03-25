@@ -26,19 +26,19 @@ On the remote, configure the plugin:
 ```bash
 openclaw config set plugins.entries.swim-school.enabled true
 
-# Add instructors (phone in E.164 format)
+# Add instructors (phone in E.164 format, email is unique ID)
 openclaw config set plugins.entries.swim-school.config.instructors '[
-  {"instructorId": "inst-1", "name": "Wal", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteId": "mosmanpark"},
+  {"name": "Wal", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteIds": ["mosmanpark"]}
+]'
+
+# Add managers
+openclaw config set plugins.entries.swim-school.config.managers '[
+  {"name": "Wal", "phone": "+61438862978", "email": "wallaceturner@gmail.com", "siteIds": ["mosmanpark"]}
 ]'
 
 # Add sites
 openclaw config set plugins.entries.swim-school.config.sites '[
-  {"siteId": "mosmanpark", "name": "Mosman Park", "suburb": "Mosman Park", "managerPhone": "+61400000099", "managerName": "Kara"}
-]'
-
-# Add allowed Google Docs
-openclaw config set plugins.entries.swim-school.config.allowedDocs '[
-  {"docId": "YOUR_GOOGLE_DOC_ID", "title": "Learn to Swim Level 1", "category": "programs"}
+  {"siteId": "mosmanpark"}
 ]'
 ```
 

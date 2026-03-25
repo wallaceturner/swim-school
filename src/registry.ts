@@ -1,4 +1,4 @@
-import type { Instructor, Site, SwimSchoolPluginConfig } from "./types.js";
+import type { Instructor, Manager, Site, SwimSchoolPluginConfig } from "./types.js";
 
 /** Normalizes a phone string to E.164-ish comparison form. */
 function normalizePhone(phone: string): string {
@@ -6,39 +6,60 @@ function normalizePhone(phone: string): string {
   return phone.replace(/[\s\-()]/g, "");
 }
 
+/** Clean a phone from WhatsApp JID or E.164 format for comparison. */
+function cleanPhone(phone: string): string {
+  let cleaned = phone;
+  if (cleaned.includes("@")) {
+    cleaned = "+" + cleaned.split("@")[0].split(":")[0];
+  }
+  return normalizePhone(cleaned);
+}
+
+/** Try to match a cleaned phone against a normalized phone (with/without +). */
+function phonesMatch(cleaned: string, normalized: string): boolean {
+  return (
+    cleaned === normalized ||
+    cleaned === normalized.replace(/^\+/, "") ||
+    "+" + cleaned === normalized
+  );
+}
+
+type KnownPerson = {
+  name: string;
+  phone: string;
+  email: string;
+  siteIds: string[];
+  role: "instructor" | "manager";
+};
+
 /**
- * Instructor registry backed by plugin config.
- * Provides lookups by phone number, site, and instructor ID.
+ * Registry backed by plugin config.
+ * Provides lookups by phone number and email for instructors and managers.
  */
 export class InstructorRegistry {
-  private byPhone = new Map<string, Instructor>();
-  private byId = new Map<string, Instructor>();
-  private bySite = new Map<string, Instructor[]>();
+  private byPhone = new Map<string, KnownPerson>();
+  private byEmail = new Map<string, KnownPerson>();
   private sites = new Map<string, Site>();
 
   constructor(cfg: SwimSchoolPluginConfig) {
     for (const inst of cfg.instructors ?? []) {
-      const normalized = normalizePhone(inst.phone);
-      this.byPhone.set(normalized, inst);
-      this.byId.set(inst.instructorId, inst);
-      const siteList = this.bySite.get(inst.siteId) ?? [];
-      siteList.push(inst);
-      this.bySite.set(inst.siteId, siteList);
+      const person: KnownPerson = { ...inst, role: "instructor" };
+      this.byPhone.set(normalizePhone(inst.phone), person);
+      this.byEmail.set(inst.email.toLowerCase(), person);
+    }
+    for (const mgr of cfg.managers ?? []) {
+      const person: KnownPerson = { ...mgr, role: "manager" };
+      this.byPhone.set(normalizePhone(mgr.phone), person);
+      this.byEmail.set(mgr.email.toLowerCase(), person);
     }
     for (const site of cfg.sites ?? []) {
       this.sites.set(site.siteId, site);
     }
   }
 
-  /** Look up an instructor by their phone number (E.164 or WhatsApp JID). */
-  lookupByPhone(phone: string): Instructor | undefined {
-    // WhatsApp JIDs look like "61400000000@s.whatsapp.net" — extract the number
-    let cleaned = phone;
-    if (cleaned.includes("@")) {
-      cleaned = "+" + cleaned.split("@")[0].split(":")[0];
-    }
-    cleaned = normalizePhone(cleaned);
-    // Try exact match first
+  /** Look up a person by their phone number (E.164 or WhatsApp JID). */
+  lookupByPhone(phone: string): KnownPerson | undefined {
+    const cleaned = cleanPhone(phone);
     const exact = this.byPhone.get(cleaned);
     if (exact) return exact;
     // Try with/without leading +
@@ -48,15 +69,14 @@ export class InstructorRegistry {
     return this.byPhone.get("+" + cleaned);
   }
 
-  lookupById(instructorId: string): Instructor | undefined {
-    return this.byId.get(instructorId);
+  /** Look up a person by email. */
+  lookupByEmail(email: string): KnownPerson | undefined {
+    return this.byEmail.get(email.toLowerCase());
   }
 
-  /** Get all instructors at a site, optionally excluding one. */
-  getSiteInstructors(siteId: string, excludeId?: string): Instructor[] {
-    const all = this.bySite.get(siteId) ?? [];
-    if (!excludeId) return all;
-    return all.filter((i) => i.instructorId !== excludeId);
+  /** Check if a phone number belongs to a registered instructor or manager. */
+  isKnownPerson(phone: string): boolean {
+    return this.lookupByPhone(phone) !== undefined;
   }
 
   getSite(siteId: string): Site | undefined {
@@ -65,27 +85,5 @@ export class InstructorRegistry {
 
   getAllSites(): Site[] {
     return [...this.sites.values()];
-  }
-
-  /** Check if a phone number belongs to a registered instructor or site manager. */
-  isKnownPerson(phone: string): boolean {
-    if (this.lookupByPhone(phone)) return true;
-    // Check site managers
-    let cleaned = phone;
-    if (cleaned.includes("@")) {
-      cleaned = "+" + cleaned.split("@")[0].split(":")[0];
-    }
-    cleaned = normalizePhone(cleaned);
-    for (const site of this.sites.values()) {
-      const managerNormalized = normalizePhone(site.managerPhone);
-      if (
-        cleaned === managerNormalized ||
-        cleaned === managerNormalized.replace(/^\+/, "") ||
-        "+" + cleaned === managerNormalized
-      ) {
-        return true;
-      }
-    }
-    return false;
   }
 }

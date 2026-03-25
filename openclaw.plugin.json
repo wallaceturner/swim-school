@@ -11,13 +11,25 @@
         "items": {
           "type": "object",
           "properties": {
-            "instructorId": { "type": "string" },
             "name": { "type": "string" },
             "phone": { "type": "string" },
             "email": { "type": "string" },
-            "siteId": { "type": "string" }
+            "siteIds": { "type": "array", "items": { "type": "string" } }
           },
-          "required": ["instructorId", "name", "phone", "siteId"]
+          "required": ["name", "phone", "email", "siteIds"]
+        }
+      },
+      "managers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "phone": { "type": "string" },
+            "email": { "type": "string" },
+            "siteIds": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["name", "phone", "email", "siteIds"]
         }
       },
       "sites": {
@@ -25,13 +37,9 @@
         "items": {
           "type": "object",
           "properties": {
-            "siteId": { "type": "string" },
-            "name": { "type": "string" },
-            "suburb": { "type": "string" },
-            "managerPhone": { "type": "string" },
-            "managerName": { "type": "string" }
+            "siteId": { "type": "string" }
           },
-          "required": ["siteId", "name", "managerPhone", "managerName"]
+          "required": ["siteId"]
         }
       },
       "driveFolder": {

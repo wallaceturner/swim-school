@@ -51,9 +51,8 @@ export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
         return textResult("Unable to identify you. Please contact your manager.");
       }
 
-      const instructor = registry.lookupByPhone(senderId);
-      const isKnown = instructor || registry.isKnownPerson(senderId);
-      if (!isKnown) {
+      const person = registry.lookupByPhone(senderId);
+      if (!person) {
         return textResult("Your phone number is not registered. Please contact your manager.");
       }
 
@@ -70,7 +69,7 @@ export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
         }
 
         if (action === "email_pdf") {
-          if (!instructor?.email) {
+          if (!person.email) {
             return textResult("No email address on file for you. Please contact your manager.");
           }
 
@@ -83,8 +82,8 @@ export function createDocsTool(opts: DocsToolOpts): AnyAgentTool {
           }
 
           const doc = matches[0];
-          logger.info(`swim_docs: emailing "${doc.name}" to ${instructor.email}`);
-          const result = await emailDoc(doc.id, doc.name, instructor.email, { gwsBinary });
+          logger.info(`swim_docs: emailing "${doc.name}" to ${person.email}`);
+          const result = await emailDoc(doc.id, doc.name, person.email, { gwsBinary });
           return textResult(result);
         }
 

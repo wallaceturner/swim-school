@@ -22,7 +22,7 @@ export default {
         return { success: false, error: { issues: [{ path: [], message: "expected config object" }] } };
       }
       const KNOWN_KEYS = new Set([
-        "instructors", "sites", "driveFolder",
+        "instructors", "managers", "sites", "driveFolder",
         "apiMode", "apiBaseUrl", "coverRequestExpiryHours",
       ]);
       const unknown = Object.keys(value).filter((k) => !KNOWN_KEYS.has(k));
@@ -36,6 +36,7 @@ export default {
       additionalProperties: false,
       properties: {
         instructors: { type: "array" },
+        managers: { type: "array" },
         sites: { type: "array" },
         driveFolder: { type: "string" },
         apiMode: { type: "string", enum: ["mock", "live"] },

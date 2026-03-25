@@ -1,4 +1,4 @@
-import type { Instructor, Site, SwimSchoolPluginConfig } from "./types.js";
+import type { SwimSchoolPluginConfig } from "./types.js";
 
 const DEFAULTS: Required<
   Pick<SwimSchoolPluginConfig, "apiMode" | "coverRequestExpiryHours" | "driveFolder">
@@ -12,18 +12,11 @@ export function resolveConfig(raw: Record<string, unknown> | undefined): SwimSch
   const cfg = (raw ?? {}) as SwimSchoolPluginConfig;
   return {
     instructors: cfg.instructors ?? [],
+    managers: cfg.managers ?? [],
     sites: cfg.sites ?? [],
     driveFolder: cfg.driveFolder ?? DEFAULTS.driveFolder,
     apiMode: cfg.apiMode ?? DEFAULTS.apiMode,
     apiBaseUrl: cfg.apiBaseUrl,
     coverRequestExpiryHours: cfg.coverRequestExpiryHours ?? DEFAULTS.coverRequestExpiryHours,
   };
-}
-
-export function getInstructors(cfg: SwimSchoolPluginConfig): Instructor[] {
-  return cfg.instructors ?? [];
-}
-
-export function getSites(cfg: SwimSchoolPluginConfig): Site[] {
-  return cfg.sites ?? [];
 }
