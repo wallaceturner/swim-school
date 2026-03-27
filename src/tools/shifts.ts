@@ -41,24 +41,19 @@ export function createShiftsTool(opts: ShiftsToolOpts): AnyAgentTool {
         return textResult("Unable to identify you. Please contact your manager.");
       }
 
-      const instructor = registry.lookupByPhone(senderId);
-      if (!instructor) {
-        return textResult(
-          "Your phone number is not registered in the system. Please contact your manager to get set up.",
-        );
+      const person = registry.lookupByPhone(senderId);
+      if (!person) {
+        return textResult("Your phone number is not registered. Please contact your manager.");
       }
 
       const period = (params.period as string) ?? "this_week";
       const { from, to } = getDateRange(period);
 
-      const shifts = await apiClient.getShiftsForInstructor(instructor.instructorId, from, to);
+      const shifts = await apiClient.getShiftsForInstructor(person.email, from, to);
 
       if (shifts.length === 0) {
-        return textResult(`No shifts found for ${instructor.name} (${period.replace("_", " ")}).`);
+        return textResult(`No shifts found for ${person.name} (${period.replace("_", " ")}).`);
       }
-
-      const site = registry.getSite(instructor.siteId);
-      const siteName = site ? site.name : instructor.siteId;
 
       const lines = shifts.map((s) => {
         const dayName = new Date(s.date + "T00:00:00").toLocaleDateString("en-AU", {
@@ -66,10 +61,10 @@ export function createShiftsTool(opts: ShiftsToolOpts): AnyAgentTool {
           day: "numeric",
           month: "short",
         });
-        return `• ${dayName}: ${formatTime(s.startTime)} – ${formatTime(s.endTime)}`;
+        return `• ${dayName}: ${formatTime(s.startTime)} – ${formatTime(s.endTime)} (${s.siteId})`;
       });
 
-      const header = `Shifts for ${instructor.name} at ${siteName} (${period.replace("_", " ")}):`;
+      const header = `Shifts for ${person.name} (${period.replace("_", " ")}):`;
       return textResult(`${header}\n${lines.join("\n")}`);
     },
   };
@@ -92,7 +87,7 @@ function getDateRange(period: string): { from: string; to: string } {
     return { from: monday.toISOString().slice(0, 10), to: sunday.toISOString().slice(0, 10) };
   }
 
-  // this_week (default): Monday through Sunday of current week
+  // this_week (default)
   const monday = new Date(today);
   const day = monday.getDay();
   const diff = day === 0 ? -6 : 1 - day;

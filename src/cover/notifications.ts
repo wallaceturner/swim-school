@@ -1,17 +1,18 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import type { Instructor, Site, CoverRequest } from "../types.js";
+import type { CoverRequest } from "../types.js";
 
 const execAsync = promisify(exec);
+const DRY_RUN = !!process.env.SWIM_DRY_RUN;
 
-/**
- * Send a WhatsApp message to a phone number using the openclaw CLI.
- * This is the simplest reliable approach — it uses the gateway's existing
- * WhatsApp connection via `openclaw message send`.
- */
+type Person = { name: string; phone: string };
+
 async function sendWhatsApp(phone: string, message: string): Promise<void> {
-  // Use heredoc to safely pass message content with special characters
   const cmd = `openclaw message send --channel whatsapp --to ${phone} --body "${escapeShell(message)}"`;
+  if (DRY_RUN) {
+    console.error(`[swim-school][DRY_RUN] WhatsApp → ${phone}: ${message}`);
+    return;
+  }
   try {
     await execAsync(cmd, { timeout: 30_000 });
   } catch (err) {
@@ -24,16 +25,14 @@ function escapeShell(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
 }
 
-/** Notify candidate instructors about a cover request. */
 export async function notifyCandidateInstructors(opts: {
-  candidates: Instructor[];
-  requester: Instructor;
+  candidates: Person[];
+  requester: Person;
   request: CoverRequest;
-  site: Site;
 }): Promise<void> {
-  const { candidates, requester, request, site } = opts;
+  const { candidates, requester, request } = opts;
   const message =
-    `Hi! ${requester.name} needs someone to cover their shift at ${site.name} (${site.suburb}) ` +
+    `Hi! ${requester.name} needs someone to cover their shift at ${request.siteId} ` +
     `on ${request.shiftDate} from ${request.shiftStartTime} to ${request.shiftEndTime}.` +
     (request.reason ? `\nReason: ${request.reason}` : "") +
     `\n\nCan you cover this shift? Reply YES or NO.` +
@@ -44,44 +43,59 @@ export async function notifyCandidateInstructors(opts: {
   }
 }
 
-/** Notify the requester that someone has accepted their cover request. */
+export async function notifyManagerCoverRequested(opts: {
+  managers: Person[];
+  requester: Person;
+  request: CoverRequest;
+}): Promise<void> {
+  const { managers, requester, request } = opts;
+  const message =
+    `FYI: ${requester.name} has requested cover for their shift on ${request.shiftDate} ` +
+    `(${request.shiftStartTime}–${request.shiftEndTime}) at ${request.siteId}. ` +
+    `Other instructors have been notified.`;
+
+  for (const mgr of managers) {
+    await sendWhatsApp(mgr.phone, message);
+  }
+}
+
 export async function notifyRequesterAccepted(opts: {
-  requester: Instructor;
-  coverer: Instructor;
+  requester: Person;
+  coverer: Person;
   request: CoverRequest;
 }): Promise<void> {
   const { requester, coverer, request } = opts;
-  const message =
+  await sendWhatsApp(
+    requester.phone,
     `Great news! ${coverer.name} has offered to cover your shift on ${request.shiftDate} ` +
-    `(${request.shiftStartTime}–${request.shiftEndTime}). ` +
-    `Waiting for manager approval — we'll let you know once it's confirmed.`;
-
-  await sendWhatsApp(requester.phone, message);
+      `(${request.shiftStartTime}–${request.shiftEndTime}). ` +
+      `Waiting for manager approval — we'll let you know once it's confirmed.`,
+  );
 }
 
-/** Notify the site manager that a cover swap needs approval. */
 export async function notifyManagerForApproval(opts: {
-  site: Site;
-  requester: Instructor;
-  coverer: Instructor;
+  managers: Person[];
+  requester: Person;
+  coverer: Person;
   request: CoverRequest;
 }): Promise<void> {
-  const { site, requester, coverer, request } = opts;
+  const { managers, requester, coverer, request } = opts;
   const message =
     `Cover request needs your approval:\n` +
     `• ${requester.name} wants ${coverer.name} to cover their shift\n` +
-    `• ${request.shiftDate} at ${site.name} (${site.suburb})\n` +
+    `• ${request.shiftDate} at ${request.siteId}\n` +
     `• ${request.shiftStartTime} – ${request.shiftEndTime}\n` +
     (request.reason ? `• Reason: ${request.reason}\n` : "") +
     `\nReply APPROVE or REJECT.\n(Ref: ${request.id.slice(0, 8)})`;
 
-  await sendWhatsApp(site.managerPhone, message);
+  for (const mgr of managers) {
+    await sendWhatsApp(mgr.phone, message);
+  }
 }
 
-/** Notify both parties of the final approval/rejection. */
 export async function notifyFinalOutcome(opts: {
-  requester: Instructor;
-  coverer: Instructor;
+  requester: Person;
+  coverer: Person;
   request: CoverRequest;
   approved: boolean;
 }): Promise<void> {
@@ -108,9 +122,8 @@ export async function notifyFinalOutcome(opts: {
   }
 }
 
-/** Notify the requester that all candidates declined. */
 export async function notifyAllDeclined(opts: {
-  requester: Instructor;
+  requester: Person;
   request: CoverRequest;
 }): Promise<void> {
   const { requester, request } = opts;
@@ -120,9 +133,8 @@ export async function notifyAllDeclined(opts: {
   );
 }
 
-/** Notify the requester that a cover request has expired. */
 export async function notifyExpired(opts: {
-  requester: Instructor;
+  requester: Person;
   request: CoverRequest;
 }): Promise<void> {
   const { requester, request } = opts;

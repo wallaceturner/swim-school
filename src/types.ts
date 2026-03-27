@@ -26,7 +26,7 @@ export type Site = {
 /** A single instructor shift returned by the scheduling API. */
 export type Shift = {
   shiftId: string;
-  instructorId: string;
+  instructorEmail: string;
   siteId: string;
   /** YYYY-MM-DD */
   date: string;

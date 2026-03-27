@@ -14,7 +14,7 @@ export function createShiftApiClient(cfg: SwimSchoolPluginConfig): ShiftApiClien
     );
   }
 
-  const instructorIds = (cfg.instructors ?? []).map((i) => i.instructorId);
+  const instructorIds = (cfg.instructors ?? []).map((i) => i.email);
   const siteIds = (cfg.sites ?? []).map((s) => s.siteId);
   return new MockShiftApiClient(instructorIds, siteIds);
 }

@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { AnyAgentTool, OpenClawPluginToolContext } from "../../api.js";
 import { createShiftApiClient } from "../api/client.js";
-import { notifyCandidateInstructors } from "../cover/notifications.js";
+import { notifyCandidateInstructors, notifyManagerCoverRequested } from "../cover/notifications.js";
 import type { CoverRequestStore } from "../cover/state.js";
 import type { InstructorRegistry } from "../registry.js";
 import { textResult } from "../tool-result.js";
@@ -13,8 +13,7 @@ const CoverRequestToolSchema = Type.Object({
   }),
   startTime: Type.Optional(
     Type.String({
-      description:
-        "Start time of the shift (HH:mm). Helps disambiguate if multiple shifts on the same day.",
+      description: "Start time of the shift (HH:mm). Helps disambiguate if multiple shifts on the same day.",
     }),
   ),
   reason: Type.Optional(Type.String({ description: "Optional reason for needing cover." })),
@@ -43,8 +42,8 @@ export function createCoverRequestTool(opts: CoverRequestToolOpts): AnyAgentTool
         return textResult("Unable to identify you. Please contact your manager.");
       }
 
-      const instructor = registry.lookupByPhone(senderId);
-      if (!instructor) {
+      const person = registry.lookupByPhone(senderId);
+      if (!person) {
         return textResult("Your phone number is not registered. Please contact your manager.");
       }
 
@@ -52,11 +51,9 @@ export function createCoverRequestTool(opts: CoverRequestToolOpts): AnyAgentTool
       const startTime = params.startTime as string | undefined;
       const reason = params.reason as string | undefined;
 
-      const shift = await apiClient.getInstructorShiftOnDate(instructor.instructorId, date);
+      const shift = await apiClient.getInstructorShiftOnDate(person.email, date);
       if (!shift) {
-        return textResult(
-          `No shift found for you on ${date}. Please check the date and try again.`,
-        );
+        return textResult(`No shift found for you on ${date}. Please check the date and try again.`);
       }
 
       if (startTime && shift.startTime !== startTime) {
@@ -65,12 +62,8 @@ export function createCoverRequestTool(opts: CoverRequestToolOpts): AnyAgentTool
         );
       }
 
-      const site = registry.getSite(shift.siteId ?? instructor.siteId);
-      if (!site) {
-        return textResult("Could not find your site. Please contact your manager.");
-      }
-
-      const candidates = registry.getSiteInstructors(site.siteId, instructor.instructorId);
+      const siteId = shift.siteId;
+      const candidates = registry.getInstructorsForSite(siteId, person.email);
       if (candidates.length === 0) {
         return textResult(
           "There are no other instructors registered at your site to ask. Please contact your manager directly.",
@@ -78,9 +71,9 @@ export function createCoverRequestTool(opts: CoverRequestToolOpts): AnyAgentTool
       }
 
       const request = await coverStore.create({
-        requesterId: instructor.instructorId,
+        requesterId: person.email,
         shiftId: shift.shiftId,
-        siteId: site.siteId,
+        siteId,
         shiftDate: shift.date,
         shiftStartTime: shift.startTime,
         shiftEndTime: shift.endTime,
@@ -88,18 +81,19 @@ export function createCoverRequestTool(opts: CoverRequestToolOpts): AnyAgentTool
         reason,
       });
 
-      await notifyCandidateInstructors({
-        candidates,
-        requester: instructor,
-        request,
-        site,
-      });
+      await notifyCandidateInstructors({ candidates, requester: person, request });
+
+      // FYI managers that a cover request is in progress
+      const managers = registry.getManagersForSite(siteId);
+      if (managers.length > 0) {
+        await notifyManagerCoverRequested({ managers, requester: person, request });
+      }
 
       const names = candidates.map((c) => c.name).join(", ");
       return textResult(
-        `Cover request created for your shift on ${shift.date} (${shift.startTime}–${shift.endTime}) at ${site.name}.\n` +
+        `Cover request created for your shift on ${shift.date} (${shift.startTime}–${shift.endTime}) at ${siteId}.\n` +
           `I've messaged ${candidates.length} instructor(s): ${names}.\n` +
-          `I'll let you know when someone responds. Your manager will need to approve the swap.`,
+          `Your manager has been notified. I'll let you know when someone responds.`,
       );
     },
   };

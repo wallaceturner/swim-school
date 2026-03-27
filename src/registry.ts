@@ -86,4 +86,28 @@ export class InstructorRegistry {
   getAllSites(): Site[] {
     return [...this.sites.values()];
   }
+
+  /** Get all instructors at a site, optionally excluding one by email. */
+  getInstructorsForSite(siteId: string, excludeEmail?: string): KnownPerson[] {
+    const result: KnownPerson[] = [];
+    for (const person of this.byEmail.values()) {
+      if (person.role === "instructor" && person.siteIds.includes(siteId)) {
+        if (!excludeEmail || person.email.toLowerCase() !== excludeEmail.toLowerCase()) {
+          result.push(person);
+        }
+      }
+    }
+    return result;
+  }
+
+  /** Get all managers for a site. */
+  getManagersForSite(siteId: string): KnownPerson[] {
+    const result: KnownPerson[] = [];
+    for (const person of this.byEmail.values()) {
+      if (person.role === "manager" && person.siteIds.includes(siteId)) {
+        result.push(person);
+      }
+    }
+    return result;
+  }
 }

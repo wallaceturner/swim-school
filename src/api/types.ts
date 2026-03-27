@@ -3,7 +3,7 @@ import type { Shift } from "../types.js";
 /** Abstract shift scheduling API client. */
 export interface ShiftApiClient {
   /** Get shifts for an instructor within a date range. */
-  getShiftsForInstructor(instructorId: string, from: string, to: string): Promise<Shift[]>;
+  getShiftsForInstructor(email: string, from: string, to: string): Promise<Shift[]>;
 
   /** Get a single shift by ID. */
   getShiftById(shiftId: string): Promise<Shift | null>;
@@ -12,5 +12,5 @@ export interface ShiftApiClient {
   getShiftsForSite(siteId: string, date: string): Promise<Shift[]>;
 
   /** Get a specific instructor's shift on a date. */
-  getInstructorShiftOnDate(instructorId: string, date: string): Promise<Shift | null>;
+  getInstructorShiftOnDate(email: string, date: string): Promise<Shift | null>;
 }

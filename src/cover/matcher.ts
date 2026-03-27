@@ -32,12 +32,8 @@ type CoverMatcherOpts = {
   cfg: SwimSchoolPluginConfig;
 };
 
-/**
- * Matches inbound WhatsApp messages against pending cover requests.
- * Handles both instructor responses (yes/no) and manager approvals.
- */
 export function createCoverMatcher(opts: CoverMatcherOpts) {
-  const { registry, coverStore, cfg } = opts;
+  const { registry, coverStore } = opts;
 
   return {
     async handleInbound(event: InboundEvent, _ctx: InboundContext): Promise<void> {
@@ -47,10 +43,7 @@ export function createCoverMatcher(opts: CoverMatcherOpts) {
       const body = (event.content ?? event.body ?? "").trim();
       if (!body) return;
 
-      // Check if this is a manager responding to an approval request
       await handleManagerResponse(senderPhone, body);
-
-      // Check if this is an instructor responding to a cover request
       await handleInstructorResponse(senderPhone, body);
     },
   };
@@ -59,77 +52,65 @@ export function createCoverMatcher(opts: CoverMatcherOpts) {
     const pendingRequests = await coverStore.findPendingForPhone(phone);
     if (pendingRequests.length === 0) return;
 
-    // If there are multiple pending requests, try to match by ref ID
     let target = pendingRequests[0];
     const refMatch = body.match(REF_PATTERN);
     if (refMatch) {
-      const refId = refMatch[1];
-      const byRef = pendingRequests.find((r) => r.id.startsWith(refId));
+      const byRef = pendingRequests.find((r) => r.id.startsWith(refMatch[1]));
       if (byRef) target = byRef;
     }
 
-    const instructor = registry.lookupByPhone(phone);
-    if (!instructor) return;
+    const person = registry.lookupByPhone(phone);
+    if (!person) return;
 
     if (YES_PATTERNS.test(body)) {
-      // Accept the cover request
-      const updated = await coverStore.accept(target.id, instructor.instructorId);
-      if (!updated) return; // Already accepted by someone else
+      const updated = await coverStore.accept(target.id, person.email);
+      if (!updated) return;
 
-      const requester = registry.lookupById(updated.requesterId);
+      const requester = registry.lookupByEmail(updated.requesterId);
       if (!requester) return;
 
-      // Notify requester
-      await notifyRequesterAccepted({ requester, coverer: instructor, request: updated });
-
-      // Notify manager for approval
-      const site = registry.getSite(updated.siteId);
-      if (!site) return;
+      await notifyRequesterAccepted({ requester, coverer: person, request: updated });
 
       const notified = await coverStore.notifyManager(updated.id);
       if (notified) {
-        await notifyManagerForApproval({ site, requester, coverer: instructor, request: notified });
+        const managers = registry.getManagersForSite(updated.siteId);
+        if (managers.length > 0) {
+          await notifyManagerForApproval({ managers, requester, coverer: person, request: notified });
+        }
       }
     } else if (NO_PATTERNS.test(body)) {
       const updated = await coverStore.decline(target.id, phone);
       if (!updated) return;
 
-      // Check if all notified instructors have declined
       const allDeclined = updated.notifiedInstructors.every((p) =>
         updated.declinedInstructors.includes(p),
       );
       if (allDeclined) {
-        const requester = registry.lookupById(updated.requesterId);
+        const requester = registry.lookupByEmail(updated.requesterId);
         if (requester) {
           await notifyAllDeclined({ requester, request: updated });
         }
       }
     }
-    // Ignore messages that don't match yes/no patterns
   }
 
   async function handleManagerResponse(phone: string, body: string): Promise<void> {
-    // Check if this phone belongs to any site manager
-    const sites = cfg.sites ?? [];
-    const managedSite = sites.find((s) => normalizePhone(s.managerPhone) === normalizePhone(phone));
-    if (!managedSite) return;
+    const manager = registry.lookupByPhone(phone);
+    if (!manager || manager.role !== "manager") return;
 
     const awaitingApproval = await coverStore.findAwaitingManagerApproval();
-    // Filter to requests at this manager's site
-    const relevant = awaitingApproval.filter((r) => r.siteId === managedSite.siteId);
+    const relevant = awaitingApproval.filter((r) => manager.siteIds.includes(r.siteId));
     if (relevant.length === 0) return;
 
-    // Match by ref ID if present, otherwise take the oldest
     let target = relevant[0];
     const refMatch = body.match(REF_PATTERN);
     if (refMatch) {
-      const refId = refMatch[1];
-      const byRef = relevant.find((r) => r.id.startsWith(refId));
+      const byRef = relevant.find((r) => r.id.startsWith(refMatch[1]));
       if (byRef) target = byRef;
     }
 
-    const requester = registry.lookupById(target.requesterId);
-    const coverer = target.coveredById ? registry.lookupById(target.coveredById) : undefined;
+    const requester = registry.lookupByEmail(target.requesterId);
+    const coverer = target.coveredById ? registry.lookupByEmail(target.coveredById) : undefined;
     if (!requester || !coverer) return;
 
     if (APPROVE_PATTERNS.test(body)) {
@@ -148,13 +129,8 @@ export function createCoverMatcher(opts: CoverMatcherOpts) {
 
 function extractPhone(from: string | undefined): string | undefined {
   if (!from) return undefined;
-  // Handle WhatsApp JID format: 61400000000@s.whatsapp.net
   if (from.includes("@")) {
     return "+" + from.split("@")[0].split(":")[0];
   }
   return from;
-}
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/[\s\-()]/g, "");
 }
