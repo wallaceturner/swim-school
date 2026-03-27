@@ -8,7 +8,7 @@ import { InstructorRegistry } from "./src/registry.js";
 import { createDocsTool } from "./src/tools/docs.js";
 // import { createShiftsTool } from "./src/tools/shifts.js";
 
-const ALLOWED_TOOLS = new Set(["swim_docs"]);
+// const ALLOWED_TOOLS = new Set(["swim_docs"]);
 // const ALLOWED_TOOLS = new Set(["swim_shifts", "swim_docs", "swim_cover_request"]);
 
 export default {
@@ -66,21 +66,43 @@ export default {
     //   name: "swim_cover_request",
     // });
 
-    // --- Lockdown: strict system prompt ---
+    // --- Stash sender identity from inbound messages ---
+    const senderBySession = new Map<string, { name: string; role: string; siteIds: string[]; email: string }>();
+
+    api.on("message_received", async (event, ctx) => {
+      if (ctx.channelId !== "whatsapp") return;
+      const person = registry.lookupByPhone(event.from);
+      if (person && ctx.conversationId) {
+        senderBySession.set(ctx.conversationId, {
+          name: person.name,
+          role: person.role,
+          siteIds: person.siteIds,
+          email: person.email,
+        });
+      }
+    });
+
+    // --- Inject system prompt with sender identity ---
 
     api.on("before_prompt_build", async (_event, ctx) => {
       if (ctx.channelId !== "whatsapp") return;
-      return { prependSystemContext: SWIM_SCHOOL_SYSTEM_PROMPT };
-    });
-
-    // --- Lockdown: block non-swim-school tools ---
-
-    api.on("before_tool_call", async (event) => {
-      if (!ALLOWED_TOOLS.has(event.toolName)) {
-        return { block: true, blockReason: "Only swim school tools are permitted." };
+      const sender = ctx.sessionKey ? senderBySession.get(ctx.sessionKey) : undefined;
+      let prompt = SWIM_SCHOOL_SYSTEM_PROMPT;
+      if (sender) {
+        const sites = sender.siteIds.join(", ");
+        prompt += `\n\nCurrent user: ${sender.name} (${sender.role} at ${sites}). Email: ${sender.email}.`;
       }
-      return undefined;
+      return { prependSystemContext: prompt };
     });
+
+    // --- Lockdown: block non-swim-school tools (disabled — was blocking memory, web UI, etc.) ---
+
+    // api.on("before_tool_call", async (event) => {
+    //   if (!ALLOWED_TOOLS.has(event.toolName)) {
+    //     return { block: true, blockReason: "Only swim school tools are permitted." };
+    //   }
+    //   return undefined;
+    // });
 
     // --- Cover request inbound matching (disabled) ---
 
