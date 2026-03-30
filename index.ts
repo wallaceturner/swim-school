@@ -3,7 +3,7 @@ import type { OpenClawPluginApi } from "./api.js";
 import { resolveConfig } from "./src/config.js";
 import { createCoverMatcher } from "./src/cover/matcher.js";
 import { createCoverRequestStore } from "./src/cover/state.js";
-import { SWIM_SCHOOL_SYSTEM_PROMPT } from "./src/prompt.js";
+import { buildSenderContext } from "./src/prompt.js";
 import { InstructorRegistry } from "./src/registry.js";
 import { createCoverRequestTool } from "./src/tools/cover-request.js";
 import { createDocsTool } from "./src/tools/docs.js";
@@ -87,12 +87,9 @@ export default {
     api.on("before_prompt_build", async (_event, ctx) => {
       if (ctx.channelId !== "whatsapp") return;
       const sender = ctx.sessionKey ? senderBySession.get(ctx.sessionKey) : undefined;
-      let prompt = SWIM_SCHOOL_SYSTEM_PROMPT;
       if (sender) {
-        const sites = sender.siteIds.join(", ");
-        prompt += `\n\nCurrent user: ${sender.name} (${sender.role} at ${sites}). Email: ${sender.email}.`;
+        return { prependSystemContext: buildSenderContext(sender) };
       }
-      return { prependSystemContext: prompt };
     });
 
     // --- Background service: expire stale cover requests ---

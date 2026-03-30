@@ -22,4 +22,5 @@ USER node
 # Link-install the plugin so openclaw discovers it on startup
 RUN node dist/index.js plugins install -l /home/node/swim-school
 
-CMD ["node", "openclaw.mjs", "gateway", "--bind", "lan"]
+ENTRYPOINT ["/home/node/swim-school/entrypoint.sh"]
+CMD ["gateway", "--bind", "lan"]
